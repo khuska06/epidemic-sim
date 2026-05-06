@@ -93,3 +93,10 @@ python src/plot.py       # зөвхөн зураг
 ---
 
 *Энэ нь сургалтын зорилготой жишээ загвар бөгөөд бодит эрүүл мэндийн зөвлөмж биш.*
+## Results
+
+### SIR Curves
+![SIR](sir_curves.png)
+
+### Peak Comparison
+![Peaks](peak_comparison.png)

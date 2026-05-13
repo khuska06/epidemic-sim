@@ -1,111 +1,265 @@
-import json                                     # JSON файл унших сан
-import os                                       # хавтасуудтай ажиллах сан
-import sys                                      # командын аргументуудыг унших сан
+import json
+import os
+import sys
 
-try:                                            # matplotlib байгаа эсэхийг шалгана
-    import matplotlib                           # зураг зурах сан
-    matplotlib.use("Agg")                       # дэлгэцгүй горим (серверт зориулсан)
-    import matplotlib.pyplot as plt             # зурах интерфейс
-    import matplotlib.patches as mpatches       # тайлбарын тэмдэглэгээ
-    HAS_MPL = True                              # matplotlib байна
-except ImportError:                             # matplotlib суулгаагүй бол
-    HAS_MPL = False                             # тэмдэглэнэ
+try:
+    import matplotlib
 
-COLORS = {                                      # нөхцөл тус бүрийн өнгийн толь бичиг
-    "Baseline":      "#2563EB",                 # цэнхэр — ердийн нөхцөл
-    "High-Contact":  "#DC2626",                 # улаан — их харилцаатай нөхцөл
-    "Fast-Recovery": "#16A34A",                 # ногоон — хурдан эдгэрэлт
-    "Intervention":  "#D97706",                 # шар — хөл хорио
+    # gui shaardahgui backend ashiglana
+    matplotlib.use("Agg")
+
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+
+    HAS_MPL = True
+
+except ImportError:
+
+    # matplotlib baihgui bol zurag zurah hesgiig alгasna
+    HAS_MPL = False
+
+
+COLORS = {
+
+    # scenario buriig oor ongoor haruulah dictionary
+    "Baseline": "#2563EB",
+    "High-Contact": "#DC2626",
+    "Fast-Recovery": "#16A34A",
+    "Intervention": "#D97706",
 }
 
-def load_timeline(name):                        # нөхцлийн цувааны JSON-ийг уншдаг функц
+
+def load_timeline(name):
+
+    # scenario neriig file-n helber ruu huvirgaj baina
     fname = f"outputs/{name.lower().replace('-','_')}_timeline.json"
-    with open(fname, encoding="utf-8") as f:    # файлыг нэнэнэ
-        return json.load(f)                     # жагсаалтыг буцаана
 
-def plot_sir_curves(scenario_names):            # SIR муруйг зурдаг функц
-    if not HAS_MPL:                             # matplotlib байхгүй бол
-        print("  ⚠ matplotlib суулгаагүй — зураг зурахгүй. pip install matplotlib")
-        return                                  # функцаас гарна
-    fig, axes = plt.subplots(2, 2, figsize=(14, 9))  # 2×2 дэд зургийн тор
-    fig.suptitle("SIR Тахлын Дуурайлт — Нөхцөл Тус Бүрийн Муруй",
-                 fontsize=15, fontweight="bold", y=1.01)  # ерөнхий гарчиг
+    with open(fname, encoding="utf-8") as f:
 
-    for ax, name in zip(axes.flat, scenario_names):  # нөхцөл тус бүр дэд зурагтай
-        tl    = load_timeline(name)             # өдрийн цувааг уншина
-        days  = [r["day"] for r in tl]         # өдрүүдийн жагсаалт
-        S_arr = [r["S"]   for r in tl]         # мэдрэмтгий хүний тоо
-        I_arr = [r["I"]   for r in tl]         # халдвартай хүний тоо
-        R_arr = [r["R"]   for r in tl]         # эдгэрсэн хүний тоо
+        # json data-g python object bolgon unshina
+        return json.load(f)
 
-        ax.plot(days, S_arr, color="#6366F1", lw=2, label="S (мэдрэмтгий)")  # S муруй
-        ax.plot(days, I_arr, color="#EF4444", lw=2.5, label="I (халдвартай)")  # I муруй
-        ax.plot(days, R_arr, color="#22C55E", lw=2, label="R (эдгэрсэн)")    # R муруй
-        ax.set_title(name, fontsize=12, color=COLORS.get(name, "#111"))       # дэд гарчиг
-        ax.set_xlabel("Өдөр", fontsize=9)       # x тэнхлэгийн шошго
-        ax.set_ylabel("Хүний тоо", fontsize=9)  # y тэнхлэгийн шошго
-        ax.legend(fontsize=8)                   # тайлбар
-        ax.grid(True, alpha=0.3)                # торлосон шугам (тунгалаг)
-        ax.yaxis.set_major_formatter(           # y тэнхлэгийг мянгаар форматлана
-            plt.FuncFormatter(lambda x, _: f"{int(x):,}"))
 
-    plt.tight_layout()                          # зургийн хоорондын зайг тохируулна
-    out = "outputs/sir_curves.png"              # гаралтын файлын нэр
-    plt.savefig(out, dpi=150, bbox_inches="tight")  # PNG болгон хадгална
-    plt.close()                                 # санах ойг чөлөөлнэ
-    print(f"  → {out} хадгалагдлаа")           # мэдэгдэнэ
+def plot_sir_curves(scenario_names):
 
-def plot_peak_comparison(summary):              # оргил утгуудыг харьцуулах баганан диаграм
-    if not HAS_MPL:                             # matplotlib байхгүй бол гарна
+    if not HAS_MPL:
+        print(" matplotlib oldsongui baina")
         return
-    names  = list(summary["scenarios"].keys())  # нөхцлийн нэрсийн жагсаалт
-    peaks  = [summary["scenarios"][n]["peak_infected"] for n in names]  # оргил тоо
-    colors = [COLORS.get(n, "#888") for n in names]  # нөхцлийн өнгө
 
-    fig, ax = plt.subplots(figsize=(9, 5))      # нэг зургийн бүтэц
-    bars = ax.bar(names, peaks, color=colors, width=0.55, edgecolor="white", linewidth=1.5)  # баганан диаграм
-    for bar, val in zip(bars, peaks):           # бар бүрт тоон шошго нэмнэ
-        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 60,
-                f"{val:,}", ha="center", va="bottom", fontsize=10, fontweight="bold")
-    ax.set_title("Нөхцөл Бүрийн Оргил Халдвартнуудын Тоо", fontsize=13, fontweight="bold")
-    ax.set_ylabel("Хамгийн их халдвартнуудын тоо", fontsize=10)  # y тэнхлэгийн шошго
-    ax.set_xlabel("Нөхцөл", fontsize=10)        # x тэнхлэгийн шошго
-    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{int(x):,}"))
-    ax.grid(axis="y", alpha=0.3)                # зөвхөн хэвтээ торлосон шугам
-    plt.tight_layout()                          # зайг тохируулна
-    out = "outputs/peak_comparison.png"         # гаралтын файлын нэр
-    plt.savefig(out, dpi=150, bbox_inches="tight")  # хадгална
-    plt.close()                                 # санах ойг чөлөөлнэ
-    print(f"  → {out} хадгалагдлаа")
+    # 2x2 subplot uusgej scenario buriig tusad ni haruulna
+    fig, axes = plt.subplots(2, 2, figsize=(14, 9))
 
-def print_table(summary):                       # консол дээр хураангуй хүснэгт хэвлэх функц
+    fig.suptitle(
+        "SIR Тахлын Дуурайлт — Нөхцөл Тус Бүрийн Муруй",
+        fontsize=15,
+        fontweight="bold",
+        y=1.01
+    )
+
+    # axis bolon scenario-iig zereg ashiglana
+    for ax, name in zip(axes.flat, scenario_names):
+
+        tl = load_timeline(name)
+
+        # odor buriin utguudiig list comprehension-aar salgaj avna
+        days = [r["day"] for r in tl]
+
+        S_arr = [r["S"] for r in tl]
+        I_arr = [r["I"] for r in tl]
+        R_arr = [r["R"] for r in tl]
+
+        # S murui -> haldvar avah bolomjtoi humuus
+        ax.plot(
+            days,
+            S_arr,
+            color="#6366F1",
+            lw=2,
+            label="S (мэдрэмтгий)"
+        )
+
+        # I murui -> odoogiin haldvartai humuus
+        ax.plot(
+            days,
+            I_arr,
+            color="#EF4444",
+            lw=2.5,
+            label="I (халдвартай)"
+        )
+
+        # R murui -> edgesen humuus
+        ax.plot(
+            days,
+            R_arr,
+            color="#22C55E",
+            lw=2,
+            label="R (эдгэрсэн)"
+        )
+
+        ax.set_title(
+            name,
+            fontsize=12,
+            color=COLORS.get(name, "#111")
+        )
+
+        ax.set_xlabel("Өдөр", fontsize=9)
+        ax.set_ylabel("Хүний тоо", fontsize=9)
+
+        # legend ni mur bolgon юуг ilerhiilj baigaag haruulna
+        ax.legend(fontsize=8)
+
+        # graph unshihad hyalbar bolgoh grid
+        ax.grid(True, alpha=0.3)
+
+        # y axis deerh too-g comma-tei haruulah formatting
+        ax.yaxis.set_major_formatter(
+            plt.FuncFormatter(
+                lambda x, _: f"{int(x):,}"
+            )
+        )
+
+    # subplot hoorondiin зайг automataar taaruulna
+    plt.tight_layout()
+
+    out = "outputs/sir_curves.png"
+
+    plt.savefig(
+        out,
+        dpi=150,
+        bbox_inches="tight"
+    )
+
+    # memory tseverleh zorilgotoi close hiij baina
+    plt.close()
+
+    print(f" -> {out} hadgalagdlaa")
+
+
+def plot_peak_comparison(summary):
+
+    if not HAS_MPL:
+        return
+
+    # scenario-uudiin neriig avna
+    names = list(summary["scenarios"].keys())
+
+    # scenario buriin peak haldvariin utga
+    peaks = [
+        summary["scenarios"][n]["peak_infected"]
+        for n in names
+    ]
+
+    # scenario buriin ongo
+    colors = [
+        COLORS.get(n, "#888")
+        for n in names
+    ]
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+
+    # baganan diagram uusgene
+    bars = ax.bar(
+        names,
+        peaks,
+        color=colors,
+        width=0.55,
+        edgecolor="white",
+        linewidth=1.5
+    )
+
+    # bar buriin deer toon utga haruulna
+    for bar, val in zip(bars, peaks):
+
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 60,
+            f"{val:,}",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+            fontweight="bold"
+        )
+
+    ax.set_title(
+        "Нөхцөл Бүрийн Оргил Халдвартнуудын Тоо",
+        fontsize=13,
+        fontweight="bold"
+    )
+
+    ax.set_ylabel(
+        "Хамгийн их халдвартнуудын тоо",
+        fontsize=10
+    )
+
+    ax.set_xlabel(
+        "Нөхцөл",
+        fontsize=10
+    )
+
+    # y axis deerh too-g comma-tei bolgono
+    ax.yaxis.set_major_formatter(
+        plt.FuncFormatter(
+            lambda x, _: f"{int(x):,}"
+        )
+    )
+
+    # zovhon y axis-iin grid haruulna
+    ax.grid(axis="y", alpha=0.3)
+
+    plt.tight_layout()
+
+    out = "outputs/peak_comparison.png"
+
+    plt.savefig(
+        out,
+        dpi=150,
+        bbox_inches="tight"
+    )
+
+    plt.close()
+
+    print(f" -> {out} hadgalagdlaa")
+
+
+def print_table(summary):
+
     print()
+
     print("┌─────────────────┬──────┬────────────┬────────────────┬──────────────┐")
     print("│ Нөхцөл          │  R0  │ Оргил өдөр │ Оргил халдвар  │ Нийт халдвар │")
     print("├─────────────────┼──────┼────────────┼────────────────┼──────────────┤")
-    for name, v in summary["scenarios"].items():  # нөхцөл бүрийн мөр
-        print(f"│ {name:<15s}  │ {v['r0']:4.2f} │    {v['peak_day']:>4}-р өдөр │   "
-              f"{v['peak_infected']:>9,}  │  {v['total_infected']:>9,}   │")
+
+    for name, v in summary["scenarios"].items():
+
+        # f-string ashiglaad table helbereer hevlej baina
+        print(
+            f"│ {name:<15s}  │ {v['r0']:4.2f} │    {v['peak_day']:>4}-р өдөр │   "
+            f"{v['peak_infected']:>9,}  │  {v['total_infected']:>9,}   │"
+        )
+
     print("└─────────────────┴──────┴────────────┴────────────────┴──────────────┘")
 
-if __name__ == "__main__":                      # шууд ажиллуулах үед
-    print("═" * 60)
-    print("   Графикийн Модуль — SIR Симуляцийн Дүрслэл")
-    print("═" * 60)
 
-    with open("outputs/summary.json", encoding="utf-8") as f:  # хураангуй JSON-ийг уншина
+if __name__ == "__main__":
+
+    print("=" * 60)
+    print(" Graph Module - SIR Simulation")
+    print("=" * 60)
+
+    with open("outputs/summary.json", encoding="utf-8") as f:
+
+        # simulate.py-s uusgesen summary file-iig unshij baina
         summary = json.load(f)
 
-    names = list(summary["scenarios"].keys())   # нөхцлийн нэрс
+    names = list(summary["scenarios"].keys())
 
-    print("▸ SIR муруйнуудыг зурж байна ...")
-    plot_sir_curves(names)                      # SIR муруйн зургийг үүсгэнэ
+    print("SIR murui zurj baina...\n")
 
-    print("▸ Оргил харьцуулах диаграм зурж байна ...")
-    plot_peak_comparison(summary)               # оргил харьцуулах диаграм үүсгэнэ
+    plot_sir_curves(names)
 
-    print_table(summary)                        # консол хүснэгтийг хэвлэнэ
+    print("Peak haritsuulsan graph zurj baina...\n")
 
-    print()
-    print("✓ Зурахуй дууслаа! outputs/ хавтасаас харна уу.")
-    print("═" * 60)
+    plot_peak_comparison(summary)
+
+    print_table(summary)
+
+    print("\nDuuslaa. outputs folderoos harna uu.")
